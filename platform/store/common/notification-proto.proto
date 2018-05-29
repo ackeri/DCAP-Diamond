@@ -1,4 +1,4 @@
-import "common-proto.proto";
+import "store/common/common-proto.proto";
 
 message Notification {
     required uint64 clientid = 1;

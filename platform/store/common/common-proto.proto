@@ -1,7 +1,13 @@
+syntax = "proto2";
+
+message TimestampMessage {
+    required uint64 id = 1;
+    required uint64 timestamp = 2;
+}
+
 message ReadMessage {
     required string key = 1;
-    required uint64 readtime = 2;
-    required uint64 end = 3;
+    required TimestampMessage readtime = 2;
 }
 
 message ReadReply {
@@ -22,11 +28,9 @@ message IncrementMessage {
    required int32 inc = 2;
 }
 
+
 // A serialized transaction
 message TransactionMessage {
-    required int32 mode = 1;
-    required uint64 timestamp = 2;
-    repeated ReadMessage readset = 3;
-    repeated WriteMessage writeset = 4;
-    repeated IncrementMessage incrementset = 5;
+    repeated ReadMessage readset = 1;
+    repeated WriteMessage writeset = 2;
 }
