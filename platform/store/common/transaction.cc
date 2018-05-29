@@ -1,5 +1,4 @@
 // -*- mode: c++; c-file-style: "k&r"; c-basic-offset: 4 -*-
-// vim: set ts=4 sw=4:
 /***********************************************************************
  *
  * common/transaction.cc
@@ -7,99 +6,75 @@
  *
  **********************************************************************/
 
-#include "transaction.h"
+#include "store/common/transaction.h"
 
 using namespace std;
 
+Transaction::Transaction() :
+    readSet(), writeSet() { }
+
 Transaction::Transaction(const TransactionMessage &msg) 
 {
-    mode = msg.mode();
-    timestamp = msg.timestamp();
     for (int i = 0; i < msg.readset_size(); i++) {
         ReadMessage readMsg = msg.readset(i);
-        readSet[readMsg.key()] = readMsg.readtime();
+        readSet[readMsg.key()] = Timestamp(readMsg.readtime());
     }
 
     for (int i = 0; i < msg.writeset_size(); i++) {
         WriteMessage writeMsg = msg.writeset(i);
         writeSet[writeMsg.key()] = writeMsg.value();
     }
-
-    for (int i = 0; i < msg.incrementset_size(); i++) {
-        IncrementMessage incMsg = msg.incrementset(i);
-        incrementSet[incMsg.key()] = incMsg.inc();
-    }
 }
 
 Transaction::~Transaction() { }
 
-const unordered_map<string, Interval>&
-Transaction::GetReadSet() const
+const unordered_map<string, Timestamp>&
+Transaction::getReadSet() const
 {
     return readSet;
 }
 
 const unordered_map<string, string>&
-Transaction::GetWriteSet() const
+Transaction::getWriteSet() const
 {
     return writeSet;
 }
 
-const set<string>&
-Transaction::GetRegSet() const
-{
-    return regSet;
-}
-
 const unordered_map<string, int>&
-Transaction::GetIncrementSet() const
+Transaction::getIncrementSet() const
 {
     return incrementSet;
 }
 
+
 void
-Transaction::AddReadSet(const string &key,
-                        const Interval &readVersion)
+Transaction::addReadSet(const string &key,
+                        const Timestamp &readTime)
 {
-    readSet[key] = readVersion;
+    readSet[key] = readTime;
 }
 
 void
-Transaction::ClearReadSet()
-{
-    readSet.clear();
-}
-
-void
-Transaction::AddWriteSet(const string &key,
+Transaction::addWriteSet(const string &key,
                          const string &value)
 {
     writeSet[key] = value;
 }
 
 void
-Transaction::AddRegSet(const string &key)
-{
-    regSet.insert(key);
-}
-
-void
-Transaction::AddIncrementSet(const string &key,
+Transaction::addIncrementSet(const string &key,
                              const int inc)
 {
     incrementSet[key] = inc;
 }
 
 void
-Transaction::Serialize(TransactionMessage *msg) const
+Transaction::serialize(TransactionMessage *msg) const
 {
-    msg->set_mode(mode);
-    msg->set_timestamp(timestamp);
     for (auto read : readSet) {
         ReadMessage *readMsg = msg->add_readset();
         readMsg->set_key(read.first);
-        readMsg->set_readtime(read.second.Start());
-        readMsg->set_end(read.second.End());
+        read.second.serialize(readMsg->mutable_readtime());
     }
 
     for (auto write : writeSet) {
@@ -107,11 +82,4 @@ Transaction::Serialize(TransactionMessage *msg) const
         writeMsg->set_key(write.first);
         writeMsg->set_value(write.second);
     }
-
-    for (auto inc : incrementSet) {
-        IncrementMessage *incMsg = msg->add_incrementset();
-        incMsg->set_key(inc.first);
-        incMsg->set_inc(inc.second);
-    }
-
 }

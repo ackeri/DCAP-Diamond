@@ -31,47 +31,64 @@
  *
  **********************************************************************/
 
-#ifndef _TXN_STORE_H_
-#define _TXN_STORE_H_
+#include "store/common/backend/txnstore.h"
 
-#include "lib/assert.h"
-#include "lib/message.h"
-#include "store/common/timestamp.h"
-#include "store/common/transaction.h"
+using namespace std;
 
-class TxnStore
+TxnStore::TxnStore() {}
+TxnStore::~TxnStore() {}
+
+int
+TxnStore::Get(uint64_t id, const string &key, pair<Timestamp, string> &value)
 {
-public:
+    Panic("Unimplemented GET");
+    return 0;
+}
 
-    TxnStore();
-    virtual ~TxnStore();
+int
+TxnStore::Get(uint64_t id, const string &key, const Timestamp &timestamp,
+    pair<Timestamp, string> &value)
+{
+    Panic("Unimplemented GET");
+    return 0;
+}
 
-    // add key to read set
-    virtual int Get(uint64_t id, const std::string &key,
-        std::pair<Timestamp, std::string> &value);
+int
+TxnStore::Put(uint64_t id, const string &key, const string &value)
+{
+    Panic("Unimplemented PUT");
+    return 0;
+}
 
-    virtual int Get(uint64_t id, const std::string &key,
-        const Timestamp &timestamp, std::pair<Timestamp, std::string> &value);
+int
+TxnStore::Prepare(uint64_t id, const Transaction &txn)
+{
+    Panic("Unimplemented PREPARE");
+    return 0;
+}
 
-    // add key to write set
-    virtual int Put(uint64_t id, const std::string &key,
-        const std::string &value);
+int
+TxnStore::Prepare(uint64_t id, const Transaction &txn,
+    const Timestamp &timestamp, Timestamp &proposed)
+{
+    Panic("Unimplemented PREPARE");
+    return 0;
+}
 
-    // check whether we can commit this transaction (and lock the read/write set)
-    virtual int Prepare(uint64_t id, const Transaction &txn);
+void
+TxnStore::Commit(uint64_t id, uint64_t timestamp)
+{
+    Panic("Unimplemented COMMIT");
+}
 
-    virtual int Prepare(uint64_t id, const Transaction &txn,
-        const Timestamp &timestamp, Timestamp &proposed);
+void
+TxnStore::Abort(uint64_t id, const Transaction &txn)
+{
+    Panic("Unimplemented ABORT");
+}
 
-    // commit the transaction
-    virtual void Commit(uint64_t id, uint64_t timestamp = 0);
-
-    // abort a running transaction
-    virtual void Abort(uint64_t id, const Transaction &txn = Transaction());
-
-    // load keys
-    virtual void Load(const std::string &key, const std::string &value,
-        const Timestamp &timestamp);
-};
-
-#endif /* _TXN_STORE_H_ */
+void
+TxnStore::Load(const string &key, const string &value, const Timestamp &timestamp)
+{
+    Panic("Unimplemented LOAD");
+}

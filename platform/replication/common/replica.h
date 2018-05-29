@@ -36,7 +36,7 @@
 
 #include "replication/common/configuration.h"
 #include "replication/common/log.h"
-#include "request.pb.h"
+#include "replication/common/request.pb.h"
 #include "lib/transport.h"
 #include "replication/common/viewstamp.h"
 

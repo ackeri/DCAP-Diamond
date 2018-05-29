@@ -1,5 +1,4 @@
 // -*- mode: c++; c-file-style: "k&r"; c-basic-offset: 4 -*-
-// vim: set ts=4 sw=4:
 /***********************************************************************
  *
  * common/transaction.h:
@@ -12,63 +11,45 @@
 
 #include "lib/assert.h"
 #include "lib/message.h"
-#include "interval.h"
-#include "common-proto.pb.h"
+#include "store/common/timestamp.h"
+#include "store/common/common-proto.pb.h"
 
 #include <unordered_map>
-#include <set>
 
-#define LINEARIZABLE 0
-#define SNAPSHOT_ISOLATION 1
-#define EVENTUAL 2
-#define READ_ONLY 3
+// Reply types
+#define REPLY_OK 0
+#define REPLY_FAIL 1
+#define REPLY_RETRY 2
+#define REPLY_ABSTAIN 3
+#define REPLY_TIMEOUT 4
+#define REPLY_NETWORK_FAILURE 5
+#define REPLY_MAX 6
 
 class Transaction {
-public:
-    Transaction() : mode(LINEARIZABLE) { };
-    Transaction(int mode) : mode(mode) { };
-    Transaction(int mode, const Timestamp timestamp) : mode(mode), timestamp(timestamp) {};
-    Transaction(int mode, const Timestamp timestamp, uint64_t reactive_id) : mode(mode), timestamp(timestamp), reactive_id(reactive_id), reactive(true) {};
-    Transaction(const TransactionMessage &msg);
-    ~Transaction();
-
-    const Timestamp GetTimestamp() const { return timestamp; };
-    void SetTimestamp(const Timestamp &ts) { timestamp = ts; };
-    const bool IsReadOnly() const { return mode == READ_ONLY; };
-    const int IsolationMode() const { return mode; };
-    const bool HasTimestamp() const { return timestamp < MAX_TIMESTAMP; };
-    const bool IsReactive() const { return reactive; };
-    const uint64_t GetReactiveId() const { return reactive_id; };
-    const std::unordered_map<std::string, Interval>& GetReadSet() const;
-    const std::unordered_map<std::string, std::string>& GetWriteSet() const;
-    const std::set<std::string>& GetRegSet() const;
-    const std::unordered_map<std::string, int>& GetIncrementSet() const;
-    
-    void AddReadSet(const std::string &key, const Interval &readVersion);
-    void ClearReadSet();
-    void AddWriteSet(const std::string &key, const std::string &value);
-    void AddRegSet(const std::string &key);
-    void AddIncrementSet(const std::string &key, const int inc);
-    void Serialize(TransactionMessage *msg) const;
 private:
-    int mode;
-    Timestamp timestamp = MAX_TIMESTAMP;
-    uint64_t reactive_id = 0;
-    bool reactive = false;
-    
     // map between key and timestamp at
     // which the read happened and how
     // many times this key has been read
-    std::unordered_map<std::string, Interval> readSet;
+    std::unordered_map<std::string, Timestamp> readSet;
 
     // map between key and value(s)
     std::unordered_map<std::string, std::string> writeSet;
 
-    // set of keys to register for reactive transactions
-    std::set<std::string> regSet;
-
-    // increment set
+	// map between key and what to increment by
     std::unordered_map<std::string, int> incrementSet;
+public:
+    Transaction();
+    Transaction(const TransactionMessage &msg);
+    ~Transaction();
+
+    const std::unordered_map<std::string, Timestamp>& getReadSet() const;
+    const std::unordered_map<std::string, std::string>& getWriteSet() const;
+    const std::unordered_map<std::string, int>& getIncrementSet() const;
+    
+    void addReadSet(const std::string &key, const Timestamp &readTime);
+    void addWriteSet(const std::string &key, const std::string &value);
+    void addIncrementSet(const std::string &key, const int inc);
+    void serialize(TransactionMessage *msg) const;
 };
 
 #endif /* _TRANSACTION_H_ */

@@ -70,9 +70,9 @@ PubStore::Publish(const uint64_t tid,
 
     // get set of keys that changed
     set<string> keys;
-    for (auto &w : t.GetWriteSet())
+    for (auto &w : t.getWriteSet())
         keys.insert(w.first);
-    for (auto &inc : t.GetIncrementSet())
+    for (auto &inc : t.getIncrementSet())
         keys.insert(inc.first);
 
     // get notifications that need to be sent

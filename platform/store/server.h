@@ -36,9 +36,9 @@
 #include "lib/tcptransport.h"
 #include "replication/replica.h"
 #include "store/pubstore.h"
-#include "common-proto.pb.h"
-#include "store-proto.pb.h"
-#include "notification-proto.pb.h"
+#include "store/common/common-proto.pb.h"
+#include "store/strong-proto.pb.h"
+#include "store/common/notification-proto.pb.h"
 
 #include <thread>
 

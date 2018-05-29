@@ -183,7 +183,7 @@ Server::Publish(const uint64_t tid,
         for (auto &v : n.second) {
             msg.add_keys(v);
         }
-        msg.set_timestamp(timestamp);
+        msg.set_timestamp(timestamp.getTimestamp());
         transport.Timer(0, [=]() {
                 transport.SendMessage(replica,
                                       n.first,

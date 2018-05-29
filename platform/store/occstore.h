@@ -38,7 +38,7 @@
 #include "includes/error.h"
 #include "store/common/backend/commstore.h"
 #include "store/common/backend/txnstore.h"
-#include "store/common/transaction.h"
+#include "includes/transactionmanager.h"
 #include "store/common/version.h"
 
 #include <vector>

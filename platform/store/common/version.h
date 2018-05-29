@@ -12,7 +12,7 @@
 
 #include "interval.h"
 #include <string>
-#include "common-proto.pb.h"
+#include "store/common/common-proto.pb.h"
 
 #define WRITE 0
 #define INCREMENT 1

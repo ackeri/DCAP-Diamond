@@ -63,12 +63,6 @@ OCCStore::Prepare(const uint64_t tid, const Transaction &txn)
 {    
     Debug("[%lu] START PREPARE", tid);
 
-    if (txn.IsolationMode() == EVENTUAL) {
-	// just go ahead and commit
-	Commit(tid, 0, txn);
-	return REPLY_OK;
-    }
-    
     if (prepared.find(tid) != prepared.end()) {
         Debug("[%lu] Already prepared!", tid);
         return REPLY_OK;
@@ -77,48 +71,46 @@ OCCStore::Prepare(const uint64_t tid, const Transaction &txn)
     Timestamp ts;
     // Do OCC checks.
     // Check for conflicts with the read set.
-    if (txn.IsolationMode() == LINEARIZABLE) {
-        for (auto &read : txn.GetReadSet()) {
-            Version cur;
-            const string &key = read.first;
-            const Interval &valid = read.second;
+	for (auto &read : txn.getReadSet()) {
+		Version cur;
+		const string &key = read.first;
+		const Interval &valid = read.second;
 
-            // ignore if this version doesn't exist
-            if (!store.Get(key, cur)) {
-                continue;
-            }
+		// ignore if this version doesn't exist
+		if (!store.Get(key, cur)) {
+			continue;
+		}
 
-            // If this key has been written since we read it, abort.
-            if (cur.GetTimestamp() > valid.Start()) {
-                Debug("[%lu] ABORT LINEARIZABLE rw conflict key:%s %lu %lu",
-                      tid, key.c_str(), cur.GetTimestamp(),
-                      valid.Start());
-            
-                Abort(tid);
-                return REPLY_FAIL;
-            }
+		// If this key has been written since we read it, abort.
+		if (cur.GetTimestamp() > valid.Start()) {
+			Debug("[%lu] ABORT LINEARIZABLE rw conflict key:%s %lu %lu",
+					tid, key.c_str(), cur.GetTimestamp(),
+					valid.Start());
+		
+			Abort(tid);
+			return REPLY_FAIL;
+		}
 
-            // If there is a pending write for this key, abort.
-            if (pWrites.find(key) != pWrites.end() &&
-                pWrites[key] > 0) {
-                Debug("[%lu] ABORT LINEARIZABLE rw conflict w/ prepared key:%s",
-                      tid, read.first.c_str());
-                Abort(tid);
-                return REPLY_FAIL;
-            }
+		// If there is a pending write for this key, abort.
+		if (pWrites.find(key) != pWrites.end() &&
+			pWrites[key] > 0) {
+			Debug("[%lu] ABORT LINEARIZABLE rw conflict w/ prepared key:%s",
+					tid, read.first.c_str());
+			Abort(tid);
+			return REPLY_FAIL;
+		}
 
-            if (pIncrements.find(key) != pIncrements.end() &&
-                pIncrements[key] > 0) {
-                Debug("[%lu] ABORT LINEARIZABLE ri conflict w/ prepared key:%s",
-                      tid, read.first.c_str());
-                Abort(tid);
-                return REPLY_FAIL;
-            }
-        }
-    }
+		if (pIncrements.find(key) != pIncrements.end() &&
+			pIncrements[key] > 0) {
+			Debug("[%lu] ABORT LINEARIZABLE ri conflict w/ prepared key:%s",
+					tid, read.first.c_str());
+			Abort(tid);
+			return REPLY_FAIL;
+		}
+	}
 
     // Check for conflicts with the write set.
-    for (auto &write : txn.GetWriteSet()) {
+    for (auto &write : txn.getWriteSet()) {
         const string &key = write.first;
         
         // if there is a pending write, always abort
@@ -139,38 +131,26 @@ OCCStore::Prepare(const uint64_t tid, const Transaction &txn)
             return REPLY_FAIL;
         }
 	    
-        if (txn.IsolationMode() == LINEARIZABLE) {
-            // If there is a pending read for this key, abort to stay linearizable.
-            if (pReads.find(key) != pReads.end() &&
-                pReads[key] > 0) {
-                Debug("[%lu] ABORT LINEARIZABLE rw conflict w/ prepared key:%s", tid,
-                      key.c_str());
-                Abort(tid);
-                return REPLY_FAIL;
-            }
+		// If there is a pending read for this key, abort to stay linearizable.
+		if (pReads.find(key) != pReads.end() &&
+			pReads[key] > 0) {
+			Debug("[%lu] ABORT LINEARIZABLE rw conflict w/ prepared key:%s", tid,
+					key.c_str());
+			Abort(tid);
+			return REPLY_FAIL;
+		}
 
-            // if there is a read at a later timestamp
-            if (store.GetLastRead(key, ts) && ts > last_committed) {
-                Debug("[%lu] ABORT LINEARIZABLE rw conflict w/ previous read:%s", tid,
-                      key.c_str());
-                Abort(tid);
-                return REPLY_FAIL;
-            }
-        } else if (txn.IsolationMode() == SNAPSHOT_ISOLATION) {
-            // If SI, check that the snapshot hasn't been written
-            Version cur;
-            if (store.Get(key, cur) && cur.GetTimestamp() > txn.GetTimestamp() &&
-                txn.GetReadSet().find(write.first) != txn.GetReadSet().end()) {
-                Debug("[%lu] ABORT SNAPSHOT ISOLATION rw conflict w/ prepared key:%s", tid,
-                      key.c_str());
-                Abort(tid);
-                return REPLY_FAIL;
-            }
-        }
-    }
+		// if there is a read at a later timestamp
+		if (store.GetLastRead(key, ts) && ts > last_committed) {
+			Debug("[%lu] ABORT LINEARIZABLE rw conflict w/ previous read:%s", tid,
+					key.c_str());
+			Abort(tid);
+			return REPLY_FAIL;
+		}
+	}
 
     // Check for conflicts with the increment set
-    for (auto &inc : txn.GetIncrementSet()) {
+    for (auto &inc : txn.getIncrementSet()) {
         const string &key = inc.first;
             
         // don't need to check for pending increments, they commute
@@ -184,48 +164,36 @@ OCCStore::Prepare(const uint64_t tid, const Transaction &txn)
             return REPLY_FAIL;
         }
 
-        if (txn.IsolationMode() == LINEARIZABLE) {
-            // Check for pending reads
-            if (pReads.find(key) != pReads.end() &&
-                pReads[key] > 0) {
-                Debug("[%lu] ABORT LINEARIZABLE ri conflict w/ prepared key:%s",
-                      tid,
-                      key.c_str());
-                Abort(tid);
-                return REPLY_FAIL;
-            }
+		// Check for pending reads
+		if (pReads.find(key) != pReads.end() &&
+			pReads[key] > 0) {
+			Debug("[%lu] ABORT LINEARIZABLE ri conflict w/ prepared key:%s",
+					tid,
+					key.c_str());
+			Abort(tid);
+			return REPLY_FAIL;
+		}
 
-            // Check for timestamp reads
-            if (store.GetLastRead(key, ts) && ts > last_committed) {
-                Debug("[%lu] ABORT LINEARIZABLE rw conflict w/ previous read:%s",
-                      tid,
-                      key.c_str());
-                Abort(tid);
-                return REPLY_FAIL;
-            }
-        } else if (txn.IsolationMode() == SNAPSHOT_ISOLATION) {
-            // If SI, check that the snapshot hasn't been written
-            Version cur;
-            if (store.Get(key, cur) && cur.GetTimestamp() > txn.GetTimestamp() &&
-                txn.GetReadSet().find(inc.first) != txn.GetReadSet().end()) {
-                Debug("[%lu] ABORT SNAPSHOT ISOLATION rw conflict w/ prepared key:%s",
-                      tid,
-                      key.c_str());
-                Abort(tid);
-                return REPLY_FAIL;
-            }
-        }
-    }
+		// Check for timestamp reads
+		if (store.GetLastRead(key, ts) && ts > last_committed) {
+			Debug("[%lu] ABORT LINEARIZABLE rw conflict w/ previous read:%s",
+					tid,
+					key.c_str());
+			Abort(tid);
+			return REPLY_FAIL;
+		}
+	}
+	
 
     // Otherwise, prepare this transaction for commit
     prepared[tid] = txn;
-    for (auto &write : txn.GetWriteSet()) {
+    for (auto &write : txn.getWriteSet()) {
         pWrites[write.first] = pWrites[write.first] + 1;
     }
-    for (auto &read : txn.GetReadSet()) {
+    for (auto &read : txn.getReadSet()) {
         pReads[read.first] = pReads[read.first] + 1;
     }
-    for (auto &incr : txn.GetIncrementSet()) {
+    for (auto &incr : txn.getIncrementSet()) {
         pIncrements[incr.first] = pIncrements[incr.first] + 1;
     }
 
@@ -246,35 +214,33 @@ OCCStore::Commit(const uint64_t tid, const Timestamp &timestamp, const Transacti
             t = txn;
         }
 
-        for (auto &write : t.GetWriteSet()) {
+        for (auto &write : t.getWriteSet()) {
             store.Put(write.first, // key
                       write.second, // value
                       timestamp); // timestamp
         }
 
-        for (auto &inc : t.GetIncrementSet()) {
+        for (auto &inc : t.getIncrementSet()) {
             store.Increment(inc.first,
                             inc.second,
                             timestamp);
         }
 
-        if (txn.IsolationMode() == LINEARIZABLE ||
-            txn.IsolationMode() == SNAPSHOT_ISOLATION) {
-            prepared.erase(tid);
-            for (auto &write : t.GetWriteSet()) {
-                pWrites.at(write.first)--;
-                ASSERT(pWrites[write.first] >= 0);
-            }
-            for (auto &read : t.GetReadSet()) {
-                pReads.at(read.first)--;
-                ASSERT(pReads[read.first] >= 0);
-            }
-            for (auto &incr : t.GetIncrementSet()) {
-                pIncrements.at(incr.first)--;
-                ASSERT(pIncrements[incr.first] >= 0);
-            }
-        }
-        committed[tid] = t;
+		prepared.erase(tid);
+		for (auto &write : t.getWriteSet()) {
+			pWrites.at(write.first)--;
+			ASSERT(pWrites[write.first] >= 0);
+		}
+		for (auto &read : t.getReadSet()) {
+			pReads.at(read.first)--;
+			ASSERT(pReads[read.first] >= 0);
+		}
+		for (auto &incr : t.getIncrementSet()) {
+			pIncrements.at(incr.first)--;
+			ASSERT(pIncrements[incr.first] >= 0);
+		}
+        
+		committed[tid] = t;
         if (timestamp > last_committed) {
             last_committed = timestamp;
         }
@@ -288,15 +254,15 @@ OCCStore::Abort(const uint64_t tid)
     if (prepared.find(tid) != prepared.end()) {
         Transaction t = prepared[tid];
         prepared.erase(tid);
-        for (auto &write : t.GetWriteSet()) {
+        for (auto &write : t.getWriteSet()) {
             pWrites.at(write.first)--;
             ASSERT(pWrites[write.first] >= 0);
         }
-        for (auto &read : t.GetReadSet()) {
+        for (auto &read : t.getReadSet()) {
             pReads.at(read.first)--;
             ASSERT(pReads[read.first] >= 0);
         }
-        for (auto &incr : t.GetIncrementSet()) {
+        for (auto &incr : t.getIncrementSet()) {
             pIncrements.at(incr.first)--;
             ASSERT(pIncrements[incr.first] >= 0);
         }
@@ -313,13 +279,13 @@ void
 OCCStore::getPreparedOps(unordered_set<string> &reads, unordered_set<string> &writes, unordered_set<string> &increments)
 {
     for (auto &t : prepared) {
-        for (auto &write : t.second.GetWriteSet()) {
+        for (auto &write : t.second.getWriteSet()) {
             writes.insert(write.first);
         }
-        for (auto &read : t.second.GetReadSet()) {
+        for (auto &read : t.second.getReadSet()) {
             reads.insert(read.first);
         }
-        for (auto &incr : t.second.GetIncrementSet()) {
+        for (auto &incr : t.second.getIncrementSet()) {
             increments.insert(incr.first);
         }
     }
@@ -330,13 +296,13 @@ OCCStore::getPreparedUpdate(const string &key)
 {
     Timestamp ts = MAX_TIMESTAMP;
     for (auto &t : prepared) {
-        for (auto &write : t.second.GetWriteSet()) {
+        for (auto &write : t.second.getWriteSet()) {
 	    if (write.first == key) {
 		if (prepared_last_commit[t.first] < ts)
 		    ts = prepared_last_commit[t.first];
 	    }		
         }
-        for (auto &incr : t.second.GetIncrementSet()) {
+        for (auto &incr : t.second.getIncrementSet()) {
 	    if (incr.first == key) {
 		if (prepared_last_commit[t.first] < ts)
 		    ts = prepared_last_commit[t.first];

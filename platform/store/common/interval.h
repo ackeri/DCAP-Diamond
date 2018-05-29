@@ -10,6 +10,8 @@
 #ifndef _INTERVAL_H_
 #define _INTERVAL_H_
 
+#define MAX_TIMESTAMP Timestamp(9223372036854775807)
+
 #include <algorithm>
 #include "timestamp.h"
 
@@ -18,7 +20,7 @@ class Interval {
     Timestamp end;
 
 public:
-    Interval() : start(INVALID_TIMESTAMP), end(MAX_TIMESTAMP) { };
+    Interval() : start(Timestamp(-1)), end(MAX_TIMESTAMP) { };
     Interval(Timestamp s) : start(s), end(MAX_TIMESTAMP) { };
     Interval(Timestamp s, Timestamp e) : start(s), end(e) { };
 
