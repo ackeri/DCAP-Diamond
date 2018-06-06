@@ -28,6 +28,8 @@ LDFLAGS += $(LIBEVENT_LDFLAGS)
 # Debian package: libssl-dev
 LIBSSL_CFLAGS := $(shell pkg-config --cflags openssl)
 LIBSSL_LDFLAGS := $(shell pkg-config --libs openssl)
+LIBTAPIR_CFLAGS := 
+LIBTAPIR_LDFLAGS := -ltapir 
 CFLAGS += $(LIBSSL_CFLAGS)
 LDFLAGS += $(LIBSSL_LDFLAGS)
 
@@ -123,16 +125,8 @@ endef
 
 include client/Rules.mk
 include frontend/Rules.mk
-include lib/Rules.mk
-include replication/common/Rules.mk
-include replication/Rules.mk
-include store/common/frontend/Rules.mk
-include store/common/backend/Rules.mk
-include store/common/Rules.mk
-include store/Rules.mk
-include timeserver/Rules.mk
-#TODO: need to build bindings
 include terminalclient/Rules.mk
+include lib/Rules.mk
 include bin/Rules.mk
 ##################################################################
 # General rules
@@ -201,7 +195,6 @@ $(PROTOOBJS:%.o=%-pic.o): .obj/%-pic.o: .obj/gen/%.pb.cc $(PROTOSRCS)
 	$(call compilecxx,CCPIC,-fPIC)
 
 
-$(info value ${PROTOOBJS})
 #
 # Linking
 #

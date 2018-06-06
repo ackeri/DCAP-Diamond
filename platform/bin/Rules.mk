@@ -1,6 +1,9 @@
 d := $(dir $(lastword $(MAKEFILE_LIST)))
 
-$(d)libtapir: $(OBJS) $(PROTOOBJS)
-LDFLAGS-$(d)libtapir += -shared
+$(d)libdiamond: $(OBJS) $(PROTOOBJS)
+LDFLAGS-$(d)libdiamond += -shared
 
-BINS += $(d)libtapir
+$(d)frontend: $(OBJS) $(PROTOOBJS)
+#LDFLAGS-$(d)frontend += 
+
+BINS += $(d)libdiamond $(d)frontend
