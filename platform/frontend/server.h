@@ -89,7 +89,7 @@ private:
     void deregister(uint64_t frontendIndex);
     void SendNotification(const ReactiveTransaction *rt,
                           const Timestamp timestamp,
-                          const std::map<std::string, Version> &values);
+                          const std::map<std::string, VersionedValue> &values);
     void NotificationGetCallback(const ReactiveTransaction *rt,
                                  const Timestamp timestamp,
                                  Promise &promise);

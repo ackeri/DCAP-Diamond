@@ -33,14 +33,14 @@
 #ifndef _DIAMOND_FRONTEND_CLIENT_H_
 #define _DIAMOND_FRONTEND_CLIENT_H_
 
-#include "lib/assert.h"
-#include "lib/message.h"
-#include "lib/transport.h"
+#include "tapir/lib/assert.h"
+#include "tapir/lib/message.h"
+#include "tapir/lib/transport.h"
 #include "includes/error.h"
-#include "store/common/frontend/txnclient.h"
-#include "store/common/timestamp.h"
-#include "store/common/transaction.h"
-#include "store/common/notification.h"
+#include "tapir/store/common/frontend/txnclient.h"
+#include "tapir/store/common/timestamp.h"
+#include "tapir/store/common/transaction.h"
+#include "tapir/store/common/notification.h"
 #include "diamond-proto.pb.h"
 #include "notification-proto.pb.h"
 
@@ -64,12 +64,16 @@ public:
 
     void Begin(const uint64_t tid);
     void BeginRO(const uint64_t tid,
-                 const Timestamp timestamp = MAX_TIMESTAMP);
-    
-    void MultiGet(const uint64_t tid,
-                  const std::set<std::string> &key,
-                  const Timestamp timestamp = MAX_TIMESTAMP,
-                  Promise *promise = NULL);
+                 const Timestamp timestamp = Timestamp());
+   
+	void Get(const uint64_t id,
+			const std::string &key,
+			Promise *promise = NULL);
+
+	void Get(const uint64_t id,
+			const std::string &key,
+			const Timestamp &timestamp,
+			Promise *promise = NULL);
 
     // Set the value for the given key.
     void Put(const uint64_t tid,
@@ -80,15 +84,18 @@ public:
     // Prepare the transaction.
     void Prepare(const uint64_t tid,
                  const Transaction &txn = Transaction(),
+				 const Timestamp &timestamp = Timestamp(),
                  Promise *promise = NULL);
 
     // Commit all Get(s) and Put(s) since Begin().
     void Commit(const uint64_t tid,
                 const Transaction &txn = Transaction(),
+				const Timestamp &timestamp = Timestamp(),
                 Promise *promise = NULL);
     
     // Abort all Get(s) and Put(s) since Begin().
     void Abort(const uint64_t tid,
+			   const Transaction &txn = Transaction(),
                Promise *promise = NULL);
 
     void GetNextNotification(bool blocking,

@@ -72,23 +72,30 @@ Client::SetNotify(notification_handler_t notify)
     hasNotificationHandler = true;
     this->notify = notify;
 }
-    
+
 void
-Client::MultiGet(const uint64_t tid,
-                 const set<string> &keys,
+Client::Get(const uint64_t tid,
+		const std::string &key,
+		const Timestamp &timestamp,
+		Promise *p)
+{
+	Get(tid, key, p);
+}
+
+void
+Client::Get(const uint64_t tid,
+                 const std::string &key,
                  const Timestamp timestamp,
                  Promise *promise)
 {
-    Debug("Sending MULTIGET [%lu keys] at %lu", keys.size(), timestamp);
+    Debug("Sending: GET at %lu", timestamp);
 
     // Fill out protobuf
     // Send message
     transport->Timer(0, [=]() {
             GetMessage msg;
             msg.set_clientid(client_id);
-            for (auto key : keys) {
-                msg.add_keys(key);
-            }
+			msg.add_keys(key);
             msg.set_txnid(tid);
             msg.set_timestamp(timestamp);
             msg.set_msgid(msgid++);
@@ -114,6 +121,7 @@ Client::Put(const uint64_t tid,
 void
 Client::Prepare(const uint64_t tid,
                 const Transaction &txn,
+				const Timestamp &timestamp, 
                 Promise *promise)
 {
     Debug("Ignore PREPARE");
@@ -123,17 +131,18 @@ Client::Prepare(const uint64_t tid,
 void
 Client::Commit(const uint64_t tid,
                const Transaction &txn,
+			   const Timestamp & timestamp,
                Promise *promise)
 {
     // If SI with no writes or read-only, just locally check the read set
     // Commit all reads locally
     if ((txn.IsolationMode() == READ_ONLY) ||
         ((txn.IsolationMode() == SNAPSHOT_ISOLATION) &&
-         txn.GetWriteSet().empty() &&
-         txn.GetIncrementSet().empty())) {
+         txn.getWriteSet().empty() &&
+         txn.getIncrementSet().empty())) {
         // Run local checks
         Interval i(0);
-        for (auto &read : txn.GetReadSet()) {
+        for (auto &read : txn.getReadSet()) {
             i = Intersect(i, read.second);
         }
         if (i.Start() <= i.End()) {
@@ -175,6 +184,7 @@ Client::Commit(const uint64_t tid,
 
 void
 Client::Abort(const uint64_t tid,
+		      Transaction &txn,
               Promise *promise)
 {
     Debug("Sending ABORT");
@@ -218,14 +228,14 @@ Client::ReceiveMessage(const TransportAddress &remote,
         if (it != waiting.end()) {
             Debug("Received GET response [%u] %i",
                   getReply.msgid(), getReply.status());
-            map<string, Version> ret;
+            map<string, VersionedValue> ret;
             int status = getReply.status(); 
             if (status == REPLY_OK) {
                 for (int i = 0; i < getReply.replies_size(); i++) {
                     string key = getReply.replies(i).key();
-                    Version v = Version(getReply.replies(i));
+                    VersionedValue v = VersionedValue(getReply.replies(i));
                     ret[key] = v;
-                    ASSERT(v.GetInterval().End() != MAX_TIMESTAMP);
+                    ASSERT(v.GetInterval().End() != Timestamp());
                     Debug("Received Get %s [%lu, %lu)",
                           key.c_str(), v.GetInterval().Start(), v.GetInterval().End());
                 }
@@ -261,10 +271,10 @@ Client::ReceiveMessage(const TransportAddress &remote,
         Debug("Received NOTIFICATION (reactive_id %lu, timestamp %lu)",
               reactive_id, timestamp);
 
-        map<string, Version> values;
+        map<string, VersionedValue> values;
         for (int i = 0; i < notification.replies_size(); i++) {
             string key = notification.replies(i).key();
-            Version value(notification.replies(i));
+            VersionedValue value(notification.replies(i));
             values[key] = value;
         }
         

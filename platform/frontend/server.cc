@@ -185,7 +185,7 @@ Server::NotificationGetCallback(const ReactiveTransaction *rt,
 void
 Server::SendNotification(const ReactiveTransaction *rt,
                          const Timestamp timestamp,
-                         const map<string, Version> &values) {
+                         const map<string, VersionedValue> &values) {
     if (rt->last_timestamp < timestamp) {
         Notification notification;
 
@@ -197,7 +197,7 @@ Server::SendNotification(const ReactiveTransaction *rt,
         
         for (auto &v : values) {
             const string &key = v.first;
-            const Version &value = v.second;
+            const VersionedValue &value = v.second;
             Debug("Packing entry %s (%lu, %lu)",
                   key.c_str(),
                   value.GetInterval().Start(),
@@ -434,7 +434,7 @@ Server::GetCallback(const TransportAddress *remote,
 		    const GetMessage msg,
 		    Promise &promise)
 {
-    map<string, Version> values = promise.GetValues();
+    map<string, VersionedValue> values = promise.GetValues();
     GetReply reply;
     reply.set_status(promise.GetReply());
     reply.set_msgid(msg.msgid());
@@ -446,7 +446,7 @@ Server::GetCallback(const TransportAddress *remote,
                   value.second.GetInterval().End(),
                   latest_commit);
             rep->set_key(value.first);
-            if (value.second.GetInterval().End() == MAX_TIMESTAMP) {
+            if (value.second.GetInterval().End() == Timestamp()) {
                 value.second.SetEnd(latest_commit);
             }
             value.second.Serialize(rep);
