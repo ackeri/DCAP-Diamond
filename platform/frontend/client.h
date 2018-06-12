@@ -41,6 +41,7 @@
 #include "tapir/store/common/timestamp.h"
 #include "tapir/store/common/transaction.h"
 #include "tapir/store/common/notification.h"
+#include "store/common/interval.h"
 #include "diamond-proto.pb.h"
 #include "notification-proto.pb.h"
 

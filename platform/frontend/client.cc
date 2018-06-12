@@ -33,10 +33,10 @@ Client::Client(const string &hostname, const string &port, Transport *transport,
 	       uint64_t client_id) :
     transport(transport), client_id(client_id)
 { 
-    transport::HostAddress frontendAddress(hostname, port);
-    vector<transport::HostAddress> addresses;
+    transport::ReplicaAddress frontendAddress(hostname, port);
+    vector<transport::ReplicaAddress> addresses;
     addresses.push_back(frontendAddress);
-    init(new transport::Configuration(addresses));
+    init(new transport::Configuration(1, 0, addresses));
 }
 
 void
@@ -76,16 +76,15 @@ Client::SetNotify(notification_handler_t notify)
 void
 Client::Get(const uint64_t tid,
 		const std::string &key,
-		const Timestamp &timestamp,
 		Promise *p)
 {
-	Get(tid, key, p);
+	Get(tid, key, Timestamp(), p);
 }
 
 void
 Client::Get(const uint64_t tid,
                  const std::string &key,
-                 const Timestamp timestamp,
+                 const Timestamp &timestamp,
                  Promise *promise)
 {
     Debug("Sending: GET at %lu", timestamp);
@@ -97,9 +96,9 @@ Client::Get(const uint64_t tid,
             msg.set_clientid(client_id);
 			msg.add_keys(key);
             msg.set_txnid(tid);
-            msg.set_timestamp(timestamp);
+            msg.set_timestamp(timestamp.getTimestamp());
             msg.set_msgid(msgid++);
-            if (transport->SendMessageToHost(this, 0, msg)) {
+            if (transport->SendMessageToReplica(this, 0, msg)) {
                 if (promise != NULL)
                     waiting[msg.msgid()] = promise;
             } else if (promise != NULL) {
@@ -134,12 +133,9 @@ Client::Commit(const uint64_t tid,
 			   const Timestamp & timestamp,
                Promise *promise)
 {
-    // If SI with no writes or read-only, just locally check the read set
-    // Commit all reads locally
-    if ((txn.IsolationMode() == READ_ONLY) ||
-        ((txn.IsolationMode() == SNAPSHOT_ISOLATION) &&
-         txn.getWriteSet().empty() &&
-         txn.getIncrementSet().empty())) {
+    //TODO we assume sub linearizable to do this
+	if ( txn.getWriteSet().empty() &&
+         txn.getIncrementSet().empty()) {
         // Run local checks
         Interval i(0);
         for (auto &read : txn.getReadSet()) {
@@ -155,25 +151,17 @@ Client::Commit(const uint64_t tid,
         return;
     }
     
-    // If eventual consistency, do no checks and don't wait for a response
-    //if (txn.IsolationMode() == EVENTUAL) {
-    //    if (promise != NULL) {
-    //        promise->Reply(REPLY_OK);
-    //    }
-    //    promise = NULL;
-    //}
-    
-    Debug("Sending COMMIT (mode=%i, t=%lu", txn.IsolationMode(), txn.GetTimestamp());
+    Debug("Sending COMMIT");
     
 
     // Send messages
     transport->Timer(0, [=]() {
             CommitMessage msg;
             msg.set_txnid(tid);
-            txn.Serialize(msg.mutable_txn());
+            txn.serialize(msg.mutable_txn());
             msg.set_clientid(client_id);
             msg.set_msgid(msgid++);
-            if (transport->SendMessageToHost(this, 0, msg)) {
+            if (transport->SendMessageToReplica(this, 0, msg)) {
 		if (promise != NULL)
 		    waiting[msg.msgid()] = promise;
             } else if (promise != NULL) {
@@ -184,7 +172,7 @@ Client::Commit(const uint64_t tid,
 
 void
 Client::Abort(const uint64_t tid,
-		      Transaction &txn,
+		      const Transaction &txn,
               Promise *promise)
 {
     Debug("Sending ABORT");
@@ -196,7 +184,7 @@ Client::Abort(const uint64_t tid,
             msg.set_txnid(tid);
             msg.set_clientid(client_id);
             msg.set_msgid(msgid++);
-            if (transport->SendMessageToHost(this, 0, msg)) {
+            if (transport->SendMessageToReplica(this, 0, msg)) {
                 if (promise != NULL) 
                     waiting[msg.msgid()] = promise;
             } else if (promise != NULL) {
@@ -228,19 +216,13 @@ Client::ReceiveMessage(const TransportAddress &remote,
         if (it != waiting.end()) {
             Debug("Received GET response [%u] %i",
                   getReply.msgid(), getReply.status());
-            map<string, VersionedValue> ret;
+            VersionedValue ret;
             int status = getReply.status(); 
             if (status == REPLY_OK) {
-                for (int i = 0; i < getReply.replies_size(); i++) {
-                    string key = getReply.replies(i).key();
-                    VersionedValue v = VersionedValue(getReply.replies(i));
-                    ret[key] = v;
-                    ASSERT(v.GetInterval().End() != Timestamp());
-                    Debug("Received Get %s [%lu, %lu)",
-                          key.c_str(), v.GetInterval().Start(), v.GetInterval().End());
-                }
+				ReadReply r = getReply.reply();
+                VersionedValue v = VersionedValue(r.timestamp(), r.value(), r.op());
             }
-            it->second->Reply(status, ret);
+            it->second->Reply(status, ret.write, ret.value);
             waiting.erase(it);
         }
     } else if (type == commitReply.GetTypeName()) {
@@ -274,7 +256,8 @@ Client::ReceiveMessage(const TransportAddress &remote,
         map<string, VersionedValue> values;
         for (int i = 0; i < notification.replies_size(); i++) {
             string key = notification.replies(i).key();
-            VersionedValue value(notification.replies(i));
+			ReadReply r = getReply.reply();
+            VersionedValue value = VersionedValue(r.timestamp(), r.value(), r.op());
             values[key] = value;
         }
         
@@ -327,9 +310,9 @@ Client::Subscribe(const uint64_t reactive_id,
                 msg.add_keys(key);
             }
             msg.set_reactiveid(reactive_id);
-            msg.set_timestamp(timestamp);
+            msg.set_timestamp(timestamp.getTimestamp());
             msg.set_msgid(msgid++);
-            if (transport->SendMessageToHost(this, 0, msg)) {
+            if (transport->SendMessageToReplica(this, 0, msg)) {
                 if (promise != NULL)
                     waiting[msg.msgid()] = promise;
             } else if (promise != NULL) {
@@ -349,7 +332,7 @@ Client::Unsubscribe(const uint64_t reactive_id,
             msg.set_clientid(client_id);
             msg.set_reactiveid(reactive_id);
             msg.set_msgid(msgid++);
-            if (transport->SendMessageToHost(this, 0, msg)) {
+            if (transport->SendMessageToReplica(this, 0, msg)) {
                 if (promise != NULL)
                     waiting[msg.msgid()] = promise;
             } else if (promise != NULL) {
@@ -373,9 +356,9 @@ Client::Ack(const uint64_t reactive_id,
             NotificationReply msg;
             msg.set_clientid(client_id);
             msg.set_reactiveid(reactive_id);
-            msg.set_timestamp(timestamp);
+            msg.set_timestamp(timestamp.getTimestamp());
             msg.set_msgid(msgid++);
-	    transport->SendMessageToHost(this, 0, msg);
+	    transport->SendMessageToReplica(this, 0, msg);
 	});
 }
 
