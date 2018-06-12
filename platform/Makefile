@@ -235,7 +235,7 @@ $(GTEST_MAIN) : build/gtest/gtest-all.o .obj/gtest/gtest_main.o
 clean:
 	$(call trace,RM,binaries,rm -f $(BINS) $(TEST_BINS))
 	$(call trace,RM,objects,rm -rf build)
-
+	$(call trace,RM,protos,rm -rf $(PROTOHEADERS) $(PROTOSRCS))
 #
 # Debugging
 #
