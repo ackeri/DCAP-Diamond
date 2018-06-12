@@ -1,4 +1,4 @@
-import "common-proto.proto";
+import "tapir/store/common/common-proto.proto";
 
 package diamond.frontend.proto;
 
