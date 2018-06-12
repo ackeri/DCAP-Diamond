@@ -135,9 +135,9 @@ DObject::Push()
 }
 
 int
-DObject::Increment(int inc)
+DObject::Increment(Increment inc)
 {
-   Debug("Increment(%i)", inc);
+   Debug("Increment");
    return store->Increment(_key, inc);
 }
    

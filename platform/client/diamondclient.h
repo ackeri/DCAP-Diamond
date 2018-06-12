@@ -32,14 +32,15 @@
 #ifndef _DIAMOND_CLIENT_H_
 #define _DIAMOND_CLIENT_H_
 
-#include "lib/assert.h"
-#include "lib/message.h"
-#include "lib/configuration.h"
-#include "lib/tcptransport.h"
+#include "tapir/lib/assert.h"
+#include "tapir/lib/message.h"
+#include "tapir/lib/configuration.h"
+#include "tapir/lib/tcptransport.h"
 #include "frontend/client.h"
-#include "store/common/frontend/client.h"
+#include "tapir/store/common/frontend/client.h"
 #include "store/common/frontend/cacheclient.h"
-#include "store/common/notification.h"
+#include "tapir/store/common/notification.h"
+#include "tapir/store/common/increment.h"
 
 #include <condition_variable>
 #include <mutex>
@@ -61,9 +62,8 @@ public:
     void Begin();
     void BeginRO();
     int Get(const std::string &key, std::string &value);
-    int MultiGet(const std::set<std::string> &keys, std::map<std::string, std::string> &value);
     int Put(const std::string &key, const std::string &value);
-    int Increment(const std::string &key, const int inc);
+    int Increment(const std::string &key, const Increment inc);
     bool Commit();
     void Abort();
 
@@ -76,7 +76,7 @@ public:
     void Notify(std::function<void (void)> callback,
                 const uint64_t reactive_id,
                 const Timestamp timestamp,
-                const std::map<std::string, Version> &values);
+                const std::map<std::string, VersionedValue> &values);
     void NotificationInit(std::function<void (void)> callback);
 private:    
     /* Private helper functions. */
@@ -104,9 +104,6 @@ private:
 
     // Caching client for the store
     CacheClient *client;
-
-    // Transaction isolation level
-    int isolationLevel = LINEARIZABLE;
 
     // reactive_id to registration set map
     std::unordered_map<uint64_t, std::set<std::string> > regMap; 

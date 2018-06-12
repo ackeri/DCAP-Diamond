@@ -38,7 +38,8 @@ void
 DCounter::IncrementNotProtected(int val)
 {
     // Increment
-    Increment(val);
+	Increment out = Increment(ADD, val);
+    Increment(out);
 }
 
 

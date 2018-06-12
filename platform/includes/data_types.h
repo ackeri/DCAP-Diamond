@@ -19,6 +19,7 @@
 #include <functional>
 
 #include "profile.h"
+#include "tapir/store/common/increment.h"
 
 namespace diamond {
 
@@ -62,7 +63,7 @@ protected:
     virtual void Deserialize(const std::string &s) = 0;
     int Push();
     int Pull();
-    int Increment(int inc);
+    int Increment(Increment inc);
 
 };
 
