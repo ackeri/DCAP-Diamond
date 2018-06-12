@@ -7,8 +7,8 @@ CXX = g++
 LD = g++
 EXPAND = lib/tmpl/expand
 
-CFLAGS := -g -Wall -pthread -iquote.obj/gen -Wno-uninitialized -O2 -DNASSERT
-#CFLAGS := -g -Wall -pthread -iquote.obj/gen -Wno-uninitialized 
+CFLAGS := -g -Wall -pthread -Wno-uninitialized -O2 -DNASSERT
+#CFLAGS := -g -Wall -pthread -Wno-uninitialized 
 CXXFLAGS := -g -std=c++0x
 LDFLAGS := -levent_pthreads
 ## Debian package: check
@@ -73,8 +73,8 @@ else
 trace = @printf "+ %-6s " $(1) ; echo $(2) ; $(3)
 Q = @
 endif
-GTEST := .obj/gtest/gtest.a
-GTEST_MAIN := .obj/gtest/gtest_main.a
+GTEST := gtest/gtest.a
+GTEST_MAIN := gtest/gtest_main.a
 
 ##################################################################
 # Sub-directories
@@ -86,7 +86,7 @@ GTEST_MAIN := .obj/gtest/gtest_main.a
 d :=
 
 # The object directory corresponding to the $(d)
-o = .obj/$(d)
+o = build/$(d)
 
 # SRCS is the list of all non-test-related source files.
 SRCS :=
@@ -97,7 +97,8 @@ TEST_SRCS :=
 GTEST_SRCS :=
 
 # PROTOS is the list of protobuf *.proto files
-PROTOS := 
+PROTOS := diamond-proto.proto latency-format.proto tapir/store/common/common-proto.proto \
+		notification-proto.proto
 
 # BINS is a list of target names for non-test binaries.  These targets
 # should depend on the appropriate object files, but should not
@@ -135,16 +136,15 @@ include bin/Rules.mk
 #
 # Protocols
 # 
-PROTOOBJS := $(PROTOS:%.proto=.obj/%.o)
-PROTOSRCS := $(PROTOS:%.proto=.obj/gen/%.pb.cc)
+PROTOOBJS := $(PROTOS:%.proto=build/%.o)
+PROTOSRCS := $(PROTOS:%.proto=%.pb.cc)
 PROTOHEADERS := $(PROTOS:%.proto=%.pb.h)
 
 
 
 
-$(PROTOSRCS) : .obj/gen/%.pb.cc: %.proto
-	@mkdir -p .obj/gen
-	$(call trace,PROTOC,$^,$(PROTOC) --cpp_out=.obj/gen $^)
+$(PROTOSRCS) : %.pb.cc: %.proto
+	$(call trace,PROTOC,$^,$(PROTOC) --cpp_out=./ $^)
 
 #
 # Compilation
@@ -157,15 +157,15 @@ $(PROTOSRCS) : .obj/gen/%.pb.cc: %.proto
 DEPFLAGS = -M -MF ${@:.o=.d} -MP -MT $@ -MG
 
 # $(call add-CFLAGS,$(TEST_SRCS),$(CHECK_CFLAGS))
-OBJS := $(SRCS:%.cc=.obj/%.o) $(TEST_SRCS:%.cc=.obj/%.o) $(GTEST_SRCS:%.cc=.obj/%.o)
+OBJS := $(SRCS:%.cc=build/%.o) $(TEST_SRCS:%.cc=build/%.o) $(GTEST_SRCS:%.cc=build/%.o)
 
 define compile
 	@mkdir -p $(dir $@)
 	$(call trace,$(1),$<,\
 	  $(CC) -iquote. $(CFLAGS) $(CFLAGS-$<) $(2) $(DEPFLAGS) -E $<)
-	$(Q)$(CC) -iquote. $(CFLAGS) $(CFLAGS-$<) $(2) -E -o .obj/$*.t $<
-	$(Q)$(EXPAND) $(EXPANDARGS) -o .obj/$*.i .obj/$*.t
-	$(Q)$(CC) $(CFLAGS) $(CFLAGS-$<) $(2) -c -o $@ .obj/$*.i
+	$(Q)$(CC) -iquote. $(CFLAGS) $(CFLAGS-$<) $(2) -E -o build/$*.t $<
+	$(Q)$(EXPAND) $(EXPANDARGS) -o build/$*.i build/$*.t
+	$(Q)$(CC) $(CFLAGS) $(CFLAGS-$<) $(2) -c -o $@ build/$*.i
 endef
 
 define compilecxx
@@ -182,16 +182,16 @@ endef
 # Slightly different rules for protobuf object files
 # because their source files have different locations.
 
-$(OBJS): .obj/%.o: %.cc $(PROTOSRCS)
+$(OBJS): build/%.o: %.cc $(PROTOSRCS)
 	$(call compilecxx,CC,)
 
-$(OBJS:%.o=%-pic.o): .obj/%-pic.o: %.cc $(PROTOSRCS)
+$(OBJS:%.o=%-pic.o): build/%-pic.o: %.cc $(PROTOSRCS)
 	$(call compilecxx,CCPIC,-fPIC)
 
-$(PROTOOBJS): .obj/%.o: .obj/gen/%.pb.cc
+$(PROTOOBJS): build/%.o: %.pb.cc
 	$(call compilecxx,CC,)
 
-$(PROTOOBJS:%.o=%-pic.o): .obj/%-pic.o: .obj/gen/%.pb.cc $(PROTOSRCS)
+$(PROTOOBJS:%.o=%-pic.o): build/%-pic.o: %.pb.cc $(PROTOSRCS)
 	$(call compilecxx,CCPIC,-fPIC)
 
 
@@ -218,13 +218,13 @@ DEPS := $(OBJS:.o=.d) $(OBJS:.o=-pic.d)
 GTEST_INTERNAL_SRCS := $(wildcard $(GTEST_DIR)/src/*.cc)
 GTEST_OBJS := $(patsubst %.cc,.obj/gtest/%.o,$(notdir $(GTEST_INTERNAL_SRCS)))
 
-$(GTEST_OBJS): .obj/gtest/%.o: $(GTEST_DIR)/src/%.cc
+$(GTEST_OBJS): build/gtest/%.o: $(GTEST_DIR)/src/%.cc
 	$(call compilecxx,CC,-I$(GTEST_DIR) -Wno-missing-field-initializers)
 
-$(GTEST) : .obj/gtest/gtest-all.o
+$(GTEST) : build/gtest/gtest-all.o
 	$(call trace,AR,$@,$(AR) $(ARFLAGS) $@ $^)
 
-$(GTEST_MAIN) : .obj/gtest/gtest-all.o .obj/gtest/gtest_main.o
+$(GTEST_MAIN) : build/gtest/gtest-all.o .obj/gtest/gtest_main.o
 	$(call trace,AR,$@,$(AR) $(ARFLAGS) $@ $^)
 
 #
@@ -234,7 +234,7 @@ $(GTEST_MAIN) : .obj/gtest/gtest-all.o .obj/gtest/gtest_main.o
 .PHONY: clean
 clean:
 	$(call trace,RM,binaries,rm -f $(BINS) $(TEST_BINS))
-	$(call trace,RM,objects,rm -rf .obj)
+	$(call trace,RM,objects,rm -rf build)
 
 #
 # Debugging

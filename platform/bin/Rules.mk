@@ -1,9 +1,11 @@
 d := $(dir $(lastword $(MAKEFILE_LIST)))
 
-$(d)libdiamond: $(OBJS) $(PROTOOBJS)
-LDFLAGS-$(d)libdiamond += -shared
+$(d)libdiamond.so: $(patsubst %.o,%-pic.o, $(OBJS-client))
+LDFLAGS-$(d)libdiamond.so += -shared
 
-$(d)frontend: $(OBJS) $(PROTOOBJS)
+BINS += $(d)libdiamond.so
+
+$(d)frontend: $(OBJS-frontend) 
 #LDFLAGS-$(d)frontend += 
 
-BINS += $(d)libdiamond $(d)frontend
+BINS += $(d)frontend
