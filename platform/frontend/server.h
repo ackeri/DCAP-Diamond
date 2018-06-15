@@ -35,12 +35,14 @@
 
 #include <mutex>
 
-#include "lib/configuration.h"
-#include "lib/tcptransport.h"
+#include "tapir/lib/configuration.h"
+#include "tapir/lib/tcptransport.h"
 #include "diamond-proto.pb.h"
 #include "notification-proto.pb.h"
+#include "store/common/notification.h"
+#include "store/common/frontend/asyncclient.h"
 #include "store/client.h"
-#include "store/common/backend/txnstore.h"
+#include "tapir/store/common/backend/txnstore.h"
 namespace diamond {
 namespace frontend {
 

@@ -5,7 +5,8 @@ LDFLAGS-$(d)libdiamond.so += -shared
 
 BINS += $(d)libdiamond.so
 
-$(d)frontend: $(OBJS-frontend) 
+$(info warning $(OBJS-strong-client))
+$(d)frontend: $(OBJS-frontend) $(OBJS-strong-client) $(PROTOOBJS) 
 #LDFLAGS-$(d)frontend += 
 
 BINS += $(d)frontend

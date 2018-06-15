@@ -94,7 +94,7 @@ Client::Get(const uint64_t tid,
     transport->Timer(0, [=]() {
             GetMessage msg;
             msg.set_clientid(client_id);
-			msg.add_keys(key);
+			msg.set_key(key);
             msg.set_txnid(tid);
             msg.set_timestamp(timestamp.getTimestamp());
             msg.set_msgid(msgid++);
@@ -222,7 +222,7 @@ Client::ReceiveMessage(const TransportAddress &remote,
 				ReadReply r = getReply.reply();
                 VersionedValue v = VersionedValue(r.timestamp(), r.value(), r.op());
             }
-            it->second->Reply(status, ret.write, ret.value);
+            it->second->Reply(status, ret.time, ret.value);
             waiting.erase(it);
         }
     } else if (type == commitReply.GetTypeName()) {

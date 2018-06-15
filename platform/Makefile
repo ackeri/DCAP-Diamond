@@ -30,8 +30,8 @@ LIBSSL_CFLAGS := $(shell pkg-config --cflags openssl)
 LIBSSL_LDFLAGS := $(shell pkg-config --libs openssl)
 LIBTAPIR_CFLAGS := 
 LIBTAPIR_LDFLAGS := -ltapir 
-CFLAGS += $(LIBSSL_CFLAGS)
-LDFLAGS += $(LIBSSL_LDFLAGS)
+CFLAGS += $(LIBTAPIR_CFLAGS)
+LDFLAGS += $(LIBTAPIR_LDFLAGS)
 
 
 # Google test framework. This doesn't use pkgconfig
@@ -98,7 +98,7 @@ GTEST_SRCS :=
 
 # PROTOS is the list of protobuf *.proto files
 PROTOS := diamond-proto.proto latency-format.proto tapir/store/common/common-proto.proto \
-		notification-proto.proto
+		notification-proto.proto store-proto.proto
 
 # BINS is a list of target names for non-test binaries.  These targets
 # should depend on the appropriate object files, but should not
@@ -126,6 +126,7 @@ endef
 
 include client/Rules.mk
 include frontend/Rules.mk
+include store/Rules.mk
 include terminalclient/Rules.mk
 include lib/Rules.mk
 include bin/Rules.mk
@@ -202,6 +203,7 @@ $(PROTOOBJS:%.o=%-pic.o): build/%-pic.o: %.pb.cc $(PROTOSRCS)
 $(call add-LDFLAGS,$(TEST_BINS),$(CHECK_LDFLAGS))
 
 $(BINS) $(TEST_BINS): %:
+	$(LD) -o $@ $^ $(LDFLAGS) $(LDFLAGS-$@)
 	$(call trace,LD,$@,$(LD) -o $@ $^ $(LDFLAGS) $(LDFLAGS-$@))
 
 #
